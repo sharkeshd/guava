@@ -175,31 +175,30 @@ public class FeatureUtil {
    * @return the requirements specified by the annotation
    * @throws ConflictingRequirementsException if the requirements are mutually inconsistent.
    */
-  private static TesterRequirements buildTesterRequirements(Annotation testerAnnotation)
-      throws ConflictingRequirementsException {
-    Class<? extends Annotation> annotationClass = testerAnnotation.annotationType();
-    Feature<?>[] presentFeatures;
-    Feature<?>[] absentFeatures;
-    try {
-      presentFeatures = (Feature[]) annotationClass.getMethod("value").invoke(testerAnnotation);
-      absentFeatures = (Feature[]) annotationClass.getMethod("absent").invoke(testerAnnotation);
-    } catch (Exception e) {
-      throw new IllegalArgumentException("Error extracting features from tester annotation.", e);
+private static TesterRequirements buildTesterRequirements(Annotation testerAnnotation)
+    throws ConflictingRequirementsException {
+    // Extract present and absent features...
+    
+    Set<Feature<?>> allPresentFeatures = addImpliedFeatures(Helpers.<Feature<?>>copyToSet(presentFeatures));
+    Set<Feature<?>> allAbsentFeatures = Helpers.<Feature<?>>copyToSet(absentFeatures);
+    
+    // Remove implied features from absent features check
+    for (Feature<?> implied : allPresentFeatures) {
+        allAbsentFeatures.remove(implied);
     }
-    Set<Feature<?>> allPresentFeatures =
-        addImpliedFeatures(Helpers.<Feature<?>>copyToSet(presentFeatures));
-    Set<Feature<?>> allAbsentFeatures =
-        addImpliedFeatures(Helpers.<Feature<?>>copyToSet(absentFeatures));
+    
     if (!Collections.disjoint(allPresentFeatures, allAbsentFeatures)) {
-      throw new ConflictingRequirementsException(
-          "Annotation explicitly or "
-              + "implicitly requires one or more features to be both present "
-              + "and absent.",
-          intersection(allPresentFeatures, allAbsentFeatures),
-          testerAnnotation);
+        throw new ConflictingRequirementsException(
+            "Annotation explicitly or "
+                + "implicitly requires one or more features to be both present "
+                + "and absent.",
+            intersection(allPresentFeatures, allAbsentFeatures),
+            testerAnnotation);
     }
+    
     return new TesterRequirements(allPresentFeatures, allAbsentFeatures);
-  }
+}
+
 
   /**
    * Construct the set of requirements specified by annotations directly on a tester class or
